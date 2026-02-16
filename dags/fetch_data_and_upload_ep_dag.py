@@ -7,10 +7,11 @@ from airflow.operators.python import PythonOperator
 
 from utils.s3_util import S3Util
 from configs.seju_logic import SejuLogic
+from configs.dream_logic import DreamLogic
 from utils.apply_logic import LogicProducer
 from utils.sftp_controller import SFTPController
 from utils.products_collector import ProductsCollector
-from configs.links import COOKIES_URL_SEJU, DATA_URL, MAIN_URL_SEJU, LANDING_URL_SEJU
+from configs.links import COOKIES_URL_SEJU, DATA_URL, MAIN_URL_SEJU, LANDING_URL_SEJU, LANDING_URL_DREAM
 from utils.slack_alert import slack_success_alert, slack_failure_alert
 
 
@@ -27,11 +28,20 @@ final_prefix_seju = os.getenv('DATA_FINAL_PREFIX_SEJU')
 seju_map_key = os.getenv('TITLE_MAP_SEJU')
 ep_seju = os.getenv('EP_FILENAME_SEJU')
 
+data_prefix_dream = os.getenv('DATA_BASE_PREFIX_DREAM')
+final_prefix_dream = os.getenv('DATA_FINAL_PREFIX_DREAM')
+dream_map_key = os.getenv('TITLE_MAP_DREAM')
+ep_dream = os.getenv('EP_FILENAME_DREAM')
+
 SFTP_HOST = os.getenv('SFTP_HOST')
 SFTP_PORT = os.getenv('SFTP_PORT')
 SFTP_USER = os.getenv('SFTP_USER')
 SFTP_PASSWORD = os.getenv('SFTP_PASSWORD')
 SFTP_REMOTE_PATH = os.getenv('SFTP_REMOTE_PATH')
+SFTP_REMOTE_PATH_DREAM = os.getenv('SFTP_REMOTE_PATH_DREAM')
+
+SEJU_ID = os.getenv('SEJU_ID')
+DREAM_ID = os.getenv('DREAM_ID')
 
 def get_products_data_seju(**context):
     execution_date = context['logical_date']
@@ -57,7 +67,8 @@ def get_products_data_seju(**context):
 
 def update_logic_seju(**context):
     logic = SejuLogic()
-    app = LogicProducer(data_prefix_seju, logic)
+    base_url = LANDING_URL_SEJU
+    app = LogicProducer(data_prefix_seju, logic, base_url, SEJU_ID)
     s3 = S3Util(silver_bucket)
 
     df = app.apply_logic(s3)
@@ -77,6 +88,31 @@ def update_logic_seju(**context):
 
     with SFTPController(SFTP_HOST, SFTP_USER, SFTP_PASSWORD, port=SFTP_PORT) as sftp:
         sftp.upload_df_tsv(final_df, SFTP_REMOTE_PATH)
+
+
+def update_logic_dream(**context):
+    logic = DreamLogic()
+    base_url = LANDING_URL_DREAM
+    app = LogicProducer(data_prefix_dream, logic, base_url, DREAM_ID)
+    s3 = S3Util(silver_bucket)
+
+    df = app.apply_logic(s3)
+    mapping_df = s3.read_xlsx(dream_map_key)
+
+    new_df = app.apply_mapping(df, mapping_df)
+    final_df = app.apply_drop_duplicates(new_df)
+
+    gold_s3 = S3Util(gold_bucket)
+
+    execution_date = context['logical_date']
+    yymmdd = execution_date.in_timezone("Asia/Seoul").strftime("%Y%m%d")
+    hhmm = execution_date.in_timezone("Asia/Seoul").strftime("%H%M")
+
+    key = f'{final_prefix_dream}/{yymmdd}/{hhmm}/{ep_dream}'
+    gold_s3.upload_parquet(final_df, key)
+
+    with SFTPController(SFTP_HOST, SFTP_USER, SFTP_PASSWORD, port=SFTP_PORT) as sftp:
+        sftp.upload_df_tsv(final_df, SFTP_REMOTE_PATH_DREAM)
 
 
 # DAG
@@ -100,4 +136,9 @@ with DAG(
         python_callable = update_logic_seju,
     )
 
-    fetch_data_seju >> update_seju_logic
+    update_dream_logic = PythonOperator(
+        task_id = 'update_logic_dream',
+        python_callable = update_logic_dream,
+    )
+
+    fetch_data_seju >> [update_seju_logic, update_dream_logic]

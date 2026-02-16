@@ -4,9 +4,11 @@ from utils.preprocessor import sort_title_universal
 
 class LogicProducer:
 
-    def __init__(self, prefix, logic):        
+    def __init__(self, prefix, logic, base_url, id):        
         self.prefix = prefix
         self.logic = logic
+        self.base_url = base_url
+        self.id = id
     
 
     def apply_logic(self, s3):
@@ -15,7 +17,7 @@ class LogicProducer:
         merged_dfs = []
 
         for num, df in enumerate(dfs.values()):
-            applied_logic_df = self.logic.create_dataFrame(df, num)
+            applied_logic_df = self.logic.create_dataFrame(df, num, self.base_url, self.id)
             merged_dfs.append(applied_logic_df)
 
         return pd.concat(merged_dfs, axis=0, ignore_index=True)
