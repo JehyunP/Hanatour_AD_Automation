@@ -157,6 +157,10 @@ def preprocess_package(brndNm):
         return '트레킹'
     elif brndNm == '프리미엄':
         return '프리미엄'
+    elif brndNm == 'ZEUS':
+        return '제우스'
+    # elif brndNm == '브랜드미적용'
+    #     return '자유'
     else:
         return '패키지'
 
@@ -172,6 +176,10 @@ def preprocess_package_trv(brndNm):
         return '트레킹 여행'
     elif brndNm == '프리미엄':
         return '프리미엄 여행'
+    elif brndNm == 'ZEUS':
+        return '제우스 여행'
+    # elif brndNm == '브랜드미적용'
+    #     return '자유 여행'
     else:
         return '패키지 여행'
 
@@ -187,6 +195,10 @@ def preprocess_package_service(brndNm):
         return '트레킹 여행서비스'
     elif brndNm == '프리미엄':
         return '프리미엄 여행서비스'
+    elif brndNm == 'ZEUS 여행서비스':
+        return '제우스'
+    # elif brndNm == '브랜드미적용'
+    #     return '자유 여행서비스'
     else:
         return '패키지 여행서비스'
 

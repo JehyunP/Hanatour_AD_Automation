@@ -50,10 +50,11 @@ class ProductsCollector:
         data = s3.read_json(filename)
 
         list_areas = []
+        valid_types = {"C", "S"}
 
-        for item in data["data"]:
-            for area in item["areas"]:
-                if area["areaType"] == "C":
+        for item in data.get("data", []):
+            for area in item.get("areas", []):
+                if area.get("areaType") in valid_types:
                     list_areas.append(
                         {
                             "main": item["name"],
@@ -65,8 +66,8 @@ class ProductsCollector:
                     )
 
                 if area["areas"]:
-                    for specific in area["areas"]:
-                        if specific["areaType"] == "C":
+                    for specific in area.get("areas", []):
+                        if specific.get("areaType") in valid_types:
                             list_areas.append(
                                 {
                                     "main": item["name"],
@@ -93,13 +94,14 @@ class ProductsCollector:
         # 쓰레드로 진행되기 때문에 각각 새로운 세션 생성
         session = Session(self.cookie)
         payload = Payloads(session)
+        area_code = "OKA" if area["code"] == 'J47' else area["code"]
 
         # api 요청
         try:
             # major products 
             major_payload = payload.build_major_product_payload(
                 self.main_url,
-                area["code"],
+                area_code,
                 area["city"],
                 start_dep_day,
                 end_dep_day,
@@ -121,11 +123,12 @@ class ProductsCollector:
                     continue
 
                 rprs_prod_cd = product["rprsProdCd"]
-                citycd = area["code"]
+                citycd = area_code
                 cityNm = area["city"]
 
                 # 상품의 모든 날짜에 대해 1차 상세 데이터 요청 및 적재
                 for page_num in range(1, 31): # 30 페이지까지
+
                     product_payload = payload.build_product_payload(
                         self.main_url,
                         rprs_prod_cd,
@@ -159,6 +162,11 @@ class ProductsCollector:
 
                             # 데이터 정의
                             sale_prod_cd = product2["saleProdCd"]
+
+                            # 코드의 3번째가 자유여행/에어텔 (B)라면 스킵
+                            if sale_prod_cd[2] == 'B':
+                                continue
+
                             sale_prod_nm = product2["saleProdNm"]
                             dep_air_nm = product2["depAirNm"]
                             main = area["main"]
