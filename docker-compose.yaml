@@ -48,7 +48,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__LOGGING__REMOTE_LOGGING: "True"
     AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: s3://${LOG_BUCKET}/airflow-logs
     AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: aws_default
-    AIRFLOW__LOGGING__LOG_RETENTION_DAYS: "14"
+    AIRFLOW__LOGGING__LOG_RETENTION_DAYS: "3"
     
   volumes:
     - ./dags:/opt/airflow/dags

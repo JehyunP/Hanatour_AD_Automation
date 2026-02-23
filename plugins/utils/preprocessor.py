@@ -44,6 +44,16 @@ def separate_nations(text):
             dic[nation].append(city)
     return dic
 
+def slice_with_wrap(arr, start, end):
+    n = len(arr)
+    if n == 0:
+        return []
+        
+    result = []
+    for i in range(start, end):
+        result.append(arr[i % n])
+    return result
+
 
 def preprocess_nations(text):
     if pd.isna(text) or not text.strip(): 
@@ -258,7 +268,7 @@ def preprocess_hashtag(text, start, end):
         seen.add(tag)
         cleaned.append(tag)
 
-    return ' '.join(cleaned[start:end])
+    return ' '.join(slice_with_wrap(cleaned, start, end))
 
 
 def preprocess_airline(text):
@@ -275,3 +285,6 @@ def sort_title_universal(title, sep=''):
     sorted_words = sorted(list(unique_words))
     
     return sep.join(sorted_words)
+
+
+

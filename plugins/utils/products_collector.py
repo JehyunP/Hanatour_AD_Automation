@@ -31,6 +31,7 @@ class ProductsCollector:
         self.data_container = defaultdict(list)
         self.counter = count()
         self.seen_products = defaultdict(set)
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
 
 
@@ -50,7 +51,7 @@ class ProductsCollector:
         data = s3.read_json(filename)
 
         list_areas = []
-        valid_types = {"C", "S"}
+        valid_types = {"C", "S", 'N'}
 
         for item in data.get("data", []):
             for area in item.get("areas", []):
@@ -85,27 +86,35 @@ class ProductsCollector:
 
     def get_products_data1(
             self, 
+            session,
             area : dict, 
             N : int, 
             start_dep_day : datetime, 
             end_dep_day : datetime
         ):
 
-        # 쓰레드로 진행되기 때문에 각각 새로운 세션 생성
-        session = Session(self.cookie)
         payload = Payloads(session)
         area_code = "OKA" if area["code"] == 'J47' else area["code"]
-
+        isNation = area['type'] =='N'
         # api 요청
         try:
             # major products 
-            major_payload = payload.build_major_product_payload(
+            if isNation:
+                major_payload = payload.build_major_product2_payload(
                 self.main_url,
                 area_code,
                 area["city"],
                 start_dep_day,
                 end_dep_day,
             )
+            else:
+                major_payload = payload.build_major_product_payload(
+                    self.main_url,
+                    area_code,
+                    area["city"],
+                    start_dep_day,
+                    end_dep_day,
+                )
 
             _products = session.post(
                 self.data_url[0], json=major_payload, timeout=10
@@ -127,9 +136,21 @@ class ProductsCollector:
                 cityNm = area["city"]
 
                 # 상품의 모든 날짜에 대해 1차 상세 데이터 요청 및 적재
+                #logging.info(f'[INFO] Product : {rprs_prod_cd} of {cityNm}')
                 for page_num in range(1, 31): # 30 페이지까지
 
-                    product_payload = payload.build_product_payload(
+                    if isNation:
+                        product_payload = payload.build_product2_payload(
+                            self.main_url,
+                            rprs_prod_cd,
+                            citycd,
+                            cityNm,
+                            start_dep_day,
+                            end_dep_day,
+                            page=page_num,
+                        )
+                    else:
+                        product_payload = payload.build_product_payload(
                         self.main_url,
                         rprs_prod_cd,
                         citycd,
@@ -243,9 +264,6 @@ class ProductsCollector:
         except Exception as e:
             logging.error(f"[ERROR] POST FAILED (major) : {area['city']}\n\tError Message : {e}")
 
-        finally:
-            session.close()
-
 
     def get_products_data2(
         self,
@@ -302,9 +320,9 @@ class ProductsCollector:
         base_prefix :str,
         s3 : S3Util
     ):
-        key = f'{base_prefix}dataset{num+1}.parquet'
+        key = f'{base_prefix}dataset{num+1:02d}.parquet'
         s3.upload_parquet(data, key)
-        logging.info((f"[SUCCESS] Uploaded dataset{num+1} into S3"))
+        logging.info((f"[SUCCESS] Uploaded dataset{num+1:02d} into S3"))
 
 
     def run_pipeline(
@@ -325,11 +343,14 @@ class ProductsCollector:
         start_dep_day = date + timedelta(days=21)
         end_dep_day = start_dep_day + timedelta(days=date_range)
 
+        shared_session = Session(self.cookie) 
+
         # 모든 area 에 대해서 멀티 쓰레드
         with ThreadPoolExecutor(max_workers=number_worker) as executor:
             for area in area_list:
                 executor.submit(
                     self.get_products_data1,
+                    shared_session,
                     area,
                     N,
                     start_dep_day,
@@ -342,7 +363,7 @@ class ProductsCollector:
         # 모든 상품에 대해서 디테일 페이지 정보를 얻고 각 정보를 리스트 안에 저장한 뒤 데이터프레임 변환
         list_set = defaultdict(list) # 파티션을 N개 만큼 나누어 저장용
 
-        shared_session = Session(self.cookie) 
+        
         with ThreadPoolExecutor(max_workers=N) as executor:
             future_to_num = {}
             for code, heap_list in self.data_container.items():

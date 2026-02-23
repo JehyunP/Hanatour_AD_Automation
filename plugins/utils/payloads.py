@@ -74,6 +74,42 @@ class Payloads:
             "strtDepDay": strtDepDay.strftime("%Y%m%d"),
             "trvlDayCnt": ""
         }
+
+    def build_major_product2_payload(
+            self,
+            domain,
+            cntryCd,
+            cntryNm,
+            strtDepDay,
+            endDepDay,
+            page=1,
+            pageSize=200
+        ):
+        return {
+            'afcnCobrandProdYn': "N",
+            "afcnResTrgtDvCd" : "00",
+            "appVersion": "",
+            "cntryCd": cntryCd,
+            "cntryNm": cntryNm,
+            "depCityCd": "",
+            "depCityNm": "전체",
+            "domain": domain,
+            "endDepDay": endDepDay.strftime("%Y%m%d"),
+            "header": self._get_updated_header(),
+            "isCobrand": "Y",
+            "isCustomCobrand": "N",
+            "os": "pc",
+            "page": page,
+            "pageSize": pageSize,
+            "paymentTypeYn": "Y",
+            "pkgServiceCd": "FP",
+            "ptnCd": "A3595",
+            "ptngr": PTNGR,
+            "resPathCd": "CBP",
+            "sort": "RPRS_SORT1",
+            "strtDepDay": strtDepDay.strftime("%Y%m%d"),
+            "trvlDayCnt": ""
+        }
     
 
     def build_product_payload(
@@ -93,6 +129,46 @@ class Payloads:
             "appVersion": "",
             "cityCd": cityCd,
             "cityNm": cityNm,
+            "depCityCd": "",
+            "depCityNm": "전체",
+            "domain": domain,
+            "endDepDay": endDepDay.strftime("%Y%m%d"),
+            "header": self._get_updated_header(),
+            "isCobrand": "Y",
+            "isCustomCobrand": "N",
+            "os": "pc",
+            "page": page,
+            "pageSize": pageSize,         
+            "paymentTypeYn": "Y",
+            "pkgServiceCd": "FP",
+            "prodTypeCd": "G,I",
+            "ptnCd": "A3595",
+            "ptngr": PTNGR,
+            "resPathCd": "CBP",
+            "rprsProdCds": rprsProdCds, 
+            "sort": "PROD_SORT5",
+            "strtDepDay": strtDepDay.strftime("%Y%m%d"),
+            "trvlDayCnt": ""
+        }
+
+    
+    def build_product2_payload(
+            self,
+            domain,
+            rprsProdCds,
+            cntryCd,
+            cntryNm,
+            strtDepDay,
+            endDepDay,
+            page=1,
+            pageSize=200
+        ):
+        return {
+            'afcnCobrandProdYn': "N",
+            "afcnResTrgtDvCd" : "00",
+            "appVersion": "",
+            "cntryCd": cntryCd,
+            "cntryNm": cntryNm,
             "depCityCd": "",
             "depCityNm": "전체",
             "domain": domain,

@@ -45,6 +45,7 @@ DREAM_ID = os.getenv('DREAM_ID')
 
 def get_products_data_seju(**context):
     execution_date = context['logical_date']
+    kst_date = logical_date.in_timezone("Asia/Seoul")
 
     collector = ProductsCollector(
         cookie=COOKIES_URL_SEJU,
@@ -58,10 +59,10 @@ def get_products_data_seju(**context):
         silver_bucket,
         filename,
         data_prefix_seju,
-        execution_date,
+        kst_date,
         180,
-        10,
-        8
+        20,
+        10
     )
 
 

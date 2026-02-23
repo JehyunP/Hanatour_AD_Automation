@@ -7,8 +7,11 @@ RUN apt-get update && \
         gcc \
         curl \
         libpq-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+        tzdata && \
+    ln -snf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /requirements.txt
 

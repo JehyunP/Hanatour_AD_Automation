@@ -1,4 +1,5 @@
 import requests
+from requests.adapters import HTTPAdapter
 import logging
 
 BASE_USER_AGENT = (
@@ -7,6 +8,7 @@ BASE_USER_AGENT = (
         "Chrome/127.0.0.0 Safari/537.36"
     )
 
+MAX_POOL_SIZE = 40
 
 class Session():
 
@@ -16,12 +18,22 @@ class Session():
             "User-Agent": BASE_USER_AGENT
         })
 
+        adapter = HTTPAdapter(
+            pool_connections=MAX_POOL_SIZE,
+            pool_maxsize=MAX_POOL_SIZE,
+            max_retries=3
+        )
+
+        self.session.mount("https://", adapter)
+
         try:
             resp = self.session.get(cookie, timeout=10)
             resp.raise_for_status()
             logging.info(f'[CREATED] Session Created with {cookie}')
         except Exception as e:
             logging.warning(f'[WARNING] Initial session request failed: {e}')
+
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
 
     def get_response(self, url):

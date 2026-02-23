@@ -56,7 +56,6 @@ DAG: `{dag.dag_id}`
 Task: `{ti.task_id}`
 Run: `{run_id}`
 '시간: `{_to_kst(logical_dt)}`
-Log: {ti.log_url}
 
 Exception:
 ```{repr(exception)}```

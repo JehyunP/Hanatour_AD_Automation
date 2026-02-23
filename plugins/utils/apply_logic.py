@@ -1,5 +1,5 @@
 import pandas as pd
-
+import logging
 from utils.preprocessor import sort_title_universal
 
 class LogicProducer:
@@ -17,8 +17,15 @@ class LogicProducer:
         merged_dfs = []
 
         for num, df in enumerate(dfs.values()):
-            applied_logic_df = self.logic.create_dataFrame(df, num, self.base_url, self.id)
-            merged_dfs.append(applied_logic_df)
+            try:
+                applied_logic_df = self.logic.create_dataFrame(df, num, self.base_url, self.id)
+                merged_dfs.append(applied_logic_df)
+            except IndexError:
+                logging.info(f"[{self.prefix}] There are no more logic to be applied (index : {num})")
+                break
+            except Exception as e:
+                logging.error(f"[{self.prefix}] Unexpected error catched: {e}")
+                continue
 
         return pd.concat(merged_dfs, axis=0, ignore_index=True)
     
