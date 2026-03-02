@@ -2,7 +2,6 @@ import re
 import pandas as pd
 
 from collections import defaultdict
-from configs.seju_logic import *
 from configs.mapping import *
 
 def remove_bracket_words(text):
@@ -276,6 +275,10 @@ def preprocess_airline(text):
         return f'{text} 직항'
     return ''
 
+def preprocess_airline_pure(text):
+    if text in ['대한항공', '아시아나항공']:
+        return text
+    return ''
 
 def sort_title_universal(title, sep=''):
     text = title.lower()
@@ -287,4 +290,62 @@ def sort_title_universal(title, sep=''):
     return sep.join(sorted_words)
 
 
+def preprocess_date(depDay):
+    if pd.isna(depDay):
+        return depDay
+    month = f'{str(depDay)[4:6]}월'
+    day = f'{str(depDay)[6:]}일'
 
+    return month, day
+
+
+
+def list_get(lst, idx = 0, alt = ''):
+    try:
+        return lst[idx]
+    except IndexError:
+        return alt
+
+
+def text_get(text, idx = 0, alt = ''):
+    lst = text.split()
+    try:
+        return lst[idx]
+    except IndexError:
+        return alt
+
+    
+def preprocess_day(trvlDay):
+    return trvlDay.split('박')[1]
+
+
+def preprocess_season(depDay, n):
+    md = int(depDay[4:])
+    tags = season(md)
+
+    if tags:
+        idx = n % len(tags)
+        return tags[idx]
+    else :
+        return ''
+
+
+def preprocess_custom_tag(custom_tag_map, baseKey, n):
+    if baseKey in custom_tag_map:
+        tag_list = custom_tag_map[baseKey]
+        
+        if tag_list:
+            idx = n % len(tag_list)
+            return tag_list[idx]
+    return ''
+
+
+def preprocess_code_tag(code_tag_map, baseKey, n, custom_tag_map, k, text):
+    if baseKey in code_tag_map and n < len(code_tag_map[baseKey]):
+        return code_tag_map.get(baseKey)[n]
+
+    elif baseKey in custom_tag_map and k < len(custom_tag_map[baseKey]):
+        return custom_tag_map.get(baseKey)[k]
+
+    else:
+        return preprocess_hashtag(text, n, n+1)

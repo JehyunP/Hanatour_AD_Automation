@@ -13,7 +13,7 @@ from utils.sftp_controller import SFTPController
 from utils.products_collector import ProductsCollector
 from configs.links import COOKIES_URL_SEJU, DATA_URL, MAIN_URL_SEJU, LANDING_URL_SEJU, LANDING_URL_DREAM
 from utils.slack_alert import slack_success_alert, slack_failure_alert
-
+from configs.mapping import SEJU_PREFERRED, DREAM_PREFERRED
 
 local_tz = pendulum.timezone("Asia/Seoul")
 seju_schedule = os.getenv('SEJU_DATA_DAG_TIME')
@@ -43,9 +43,11 @@ SFTP_REMOTE_PATH_DREAM = os.getenv('SFTP_REMOTE_PATH_DREAM')
 SEJU_ID = os.getenv('SEJU_ID')
 DREAM_ID = os.getenv('DREAM_ID')
 
+
+
 def get_products_data_seju(**context):
     execution_date = context['logical_date']
-    kst_date = logical_date.in_timezone("Asia/Seoul")
+    kst_date = execution_date.in_timezone("Asia/Seoul")
 
     collector = ProductsCollector(
         cookie=COOKIES_URL_SEJU,
@@ -65,18 +67,34 @@ def get_products_data_seju(**context):
         10
     )
 
+    mapping_s3 = S3Util(silver_bucket)
+    code_tag_map = mapping_s3.get_keyword()
+    custom_tag_map = mapping_s3.get_custom_tag()
+    popular_keyword_map = mapping_s3.get_custom_tag('popular_keyword/popular_keyword.parquet')
+
+    return {
+        'code_tag_map' : code_tag_map,
+        'custom_tag_map' : custom_tag_map,
+        'popular_keyword_map' : popular_keyword_map
+    }
+
+
 
 def update_logic_seju(**context):
-    logic = SejuLogic()
+    ti = context['ti']
+    mapping_data = ti.xcom_pull(task_ids='get_products_data_seju')
+
+    code_tag_map = mapping_data['code_tag_map']
+    custom_tag_map = mapping_data['custom_tag_map']
+    popular_keyword_map = mapping_data['popular_keyword_map']
+
+    logic = SejuLogic(code_tag_map, custom_tag_map, popular_keyword_map)
     base_url = LANDING_URL_SEJU
-    app = LogicProducer(data_prefix_seju, logic, base_url, SEJU_ID)
+    app = LogicProducer(data_prefix_seju, logic, base_url, SEJU_ID, SEJU_PREFERRED)
     s3 = S3Util(silver_bucket)
 
-    df = app.apply_logic(s3)
-    mapping_df = s3.read_xlsx(seju_map_key)
-
-    new_df = app.apply_mapping(df, mapping_df)
-    final_df = app.apply_drop_duplicates(new_df)
+    df = app.apply_logic(s3, 'seju')
+    final_df = app.apply_drop_duplicates(df)
 
     gold_s3 = S3Util(gold_bucket)
 
@@ -92,16 +110,20 @@ def update_logic_seju(**context):
 
 
 def update_logic_dream(**context):
-    logic = DreamLogic()
+    ti = context['ti']
+    mapping_data = ti.xcom_pull(task_ids='get_products_data_seju')
+
+    code_tag_map = mapping_data['code_tag_map']
+    custom_tag_map = mapping_data['custom_tag_map']
+    popular_keyword_map = mapping_data['popular_keyword_map']
+
+    logic = DreamLogic(code_tag_map, custom_tag_map, popular_keyword_map)
     base_url = LANDING_URL_DREAM
-    app = LogicProducer(data_prefix_dream, logic, base_url, DREAM_ID)
+    app = LogicProducer(data_prefix_dream, logic, base_url, DREAM_ID, DREAM_PREFERRED)
     s3 = S3Util(silver_bucket)
 
-    df = app.apply_logic(s3)
-    mapping_df = s3.read_xlsx(dream_map_key)
-
-    new_df = app.apply_mapping(df, mapping_df)
-    final_df = app.apply_drop_duplicates(new_df)
+    df = app.apply_logic(s3, 'dream')
+    final_df = app.apply_drop_duplicates(df)
 
     gold_s3 = S3Util(gold_bucket)
 
@@ -142,4 +164,4 @@ with DAG(
         python_callable = update_logic_dream,
     )
 
-    fetch_data_seju >> [update_seju_logic, update_dream_logic]
+    fetch_data_seju >> update_seju_logic >> update_dream_logic

@@ -6,6 +6,8 @@ import pandas as pd
 import io
 import json
 
+from collections import defaultdict
+
 class S3Util:
     def __init__(self, bucket):
         self.s3 = boto3.client(
@@ -121,3 +123,57 @@ class S3Util:
             raise
 
         
+    def get_keyword(self, key='code_keyword/code_keyword.parquet'):
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            
+            body = response['Body'].read()
+            df = pd.read_parquet(io.BytesIO(body))
+
+            code_tag = (
+                df.groupby('baseKey')['keyword']
+                .apply(lambda s: list(s))
+                .to_dict()
+            )
+        except self.s3.exceptions.NoSuchKey:
+            logging.error(f"[ERROR] No such key: {self.bucket}/{key}")
+            raise
+        except Exception as e:
+            logging.error(f"[ERROR] Read parqeut failed: {self.bucket}/{key}\n\t{e}")
+            raise
+        
+        return code_tag
+
+
+    def get_custom_tag(self, key='custom_tag/custom_tag.parquet'):
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+
+            body = response['Body'].read()
+            df = pd.read_parquet(io.BytesIO(body))
+
+            tag_cols = [c for c in df.columns if c.startswith('tag')]
+
+            code_tag = defaultdict(list)
+
+            for _, row in df.iterrows():
+                base = str(row['baseKey']).strip()
+                if not base:
+                    continue
+                
+                for col in tag_cols:
+                    val = row[col]
+                    if pd.isna(val):
+                        continue
+                    tag = str(val).strip()
+                    if tag:
+                        code_tag[base].append(tag)
+                        
+        except self.s3.exceptions.NoSuchKey:
+            logging.error(f"[ERROR] No such key: {self.bucket}/{key}")
+            raise
+
+        except Exception as e:
+            logging.error(f"[ERROR] Read parquet failed: {self.bucket}/{key}\n\t{e}")
+            raise
+        return dict(code_tag)
